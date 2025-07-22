@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from pymongo import MongoClient
-from bson.objectid import ObjectId
+from bson.errors import InvalidId
 from datetime import datetime
 import pytz
 
@@ -25,6 +25,14 @@ def convert_to_json_serializable(data):
     else:
         return data
 
+def get_next_sequence_value(sequence_name):
+    counter = menu_collection.find_one_and_update(
+        {"_id": sequence_name},
+        {"$inc": {"sequence_value": 1}},
+        return_document=True
+    )
+    return counter["sequence_value"]
+
 
 @app.route("/")
 def home():
@@ -43,32 +51,64 @@ def get_menu():
 @app.route("/menu", methods=["POST"])
 def add_menu():
     data = request.get_json() if request.is_json else request.form
+    id_menu = get_next_sequence_value("menuId")
     nama_makanan = data.get("namaMakanan")
     harga_makanan = data.get("hargaMakanan")
 
-    if not nama_makanan or not harga_makanan:
-        return jsonify({"error": "Nama makanan dan harga harus diisi"}), 400
+    if not id_menu or not nama_makanan or not harga_makanan:
+        return jsonify({"error": "MenuId, Nama makanan dan harga harus diisi"}), 400
 
     try:
         harga_makanan = float(harga_makanan)
     except ValueError:
         return jsonify({"error": "Harga harus berupa angka"}), 400
 
-    new_item = {"namaMakanan": nama_makanan, "hargaMakanan": harga_makanan}
+    new_item = {"menuId": id_menu,"namaMakanan": nama_makanan, "hargaMakanan": harga_makanan}
     result = menu_collection.insert_one(new_item)
     return jsonify({"message": "Menu berhasil ditambahkan", "id": str(result.inserted_id)}), 201
 
+@app.route("/menu", methods=["PUT"])
+def update_menu():
+    data = request.get_json() if request.is_json else request.form
+    id_menu = data.get("menuId")
+    nama_makanan = data.get("namaMakanan")
+    harga_makanan = data.get("hargaMakanan")
+
+    if not id_menu or not nama_makanan or not harga_makanan:
+        return jsonify({"error": "MenuId, Nama makanan dan harga harus diisi"}), 400
+
+    try:
+        harga_makanan = float(harga_makanan)
+    except ValueError:
+        return jsonify({"error": "Harga harus berupa angka"}), 400
+
+    result = menu_collection.update_one({"menuId": id_menu},  # Filter: cari dokumen dengan ID ini
+            {"$set": {  # Update field berikut
+                "namaMakanan": nama_makanan,
+                "hargaMakanan": harga_makanan
+            }}
+        )
+    if result.modified_count > 0:
+        return jsonify({"message": "Menu berhasil diupdate"}), 200
+    else:
+        return jsonify({"error": "Menu tidak ditemukan atau tidak ada perubahan"}), 404
+
+
 
 # Endpoint untuk menghapus menu
-@app.route("/menu/<string:menu_id>", methods=["DELETE"])
-def delete_menu(menu_id):
+@app.route("/menu", methods=["DELETE"])
+def delete_menu():
+
+    data = request.get_json() if request.is_json else request.form
+    menu_id = data.get("menuId")
     try:
-        result = menu_collection.delete_one({"_id": ObjectId(menu_id)})
+
+        result = menu_collection.delete_one({"menuId": menu_id})
         if result.deleted_count > 0:
             return jsonify({"message": "Menu berhasil dihapus"}), 200
         else:
             return jsonify({"error": "Menu tidak ditemukan"}), 404
-    except Exception as e:
+    except InvalidId:
         return jsonify({"error": "ID tidak valid"}), 400
 
 
