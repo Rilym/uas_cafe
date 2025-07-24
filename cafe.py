@@ -161,10 +161,21 @@ def update_menu():
 def delete_menu():
     data = request.get_json() if request.is_json else request.form
     menu_id = data.get("menuId")
+
     if not menu_id:
         return jsonify({"error": "MenuId harus diisi"}), 400
+
+    # Convert to string for comparison if needed
+    menu_id = str(menu_id).strip()
+
     try:
+        # Try both string and number conversion if needed
         result = menu_collection.delete_one({"menuId": menu_id})
+        if result.deleted_count == 0:
+            # Try with integer if menuId is stored as number
+            if menu_id.isdigit():
+                result = menu_collection.delete_one({"menuId": int(menu_id)})
+
         if result.deleted_count > 0:
             return jsonify({"message": "Menu berhasil dihapus"}), 200
         else:
