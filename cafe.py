@@ -106,7 +106,7 @@ def add_menu():
     
     id_menu = get_next_sequence_value("menuId")
     new_item = {"menuId": id_menu,"namaMakanan": nama_makanan, "hargaMakanan": harga_makanan}
-    result = menu_collection.insert_one(new_item)
+    menu_collection.insert_one(new_item)
     
     new_item_serializable = convert_to_json_serializable(new_item)
     return jsonify({"message": "Menu berhasil ditambahkan", "menu": new_item_serializable}), 201
@@ -213,7 +213,7 @@ def add_member():
         return jsonify({"error": "ID sudah digunakan"}), 409
 
     new_member = {"name": name, "id": member_id}
-    result = member_collection.insert_one(new_member)
+    member_collection.insert_one(new_member)
     
     if member_id.startswith('M') and member_id[1:].isdigit():
         try:
